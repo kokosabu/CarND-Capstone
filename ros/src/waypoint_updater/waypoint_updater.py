@@ -6,6 +6,8 @@ from styx_msgs.msg import Lane, Waypoint
 
 import math
 
+from geometry_msgs.msg import TwistStamped
+
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
 
@@ -22,6 +24,7 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
+ONE_MPH = 0.44704
 
 
 class WaypointUpdater(object):
@@ -31,22 +34,71 @@ class WaypointUpdater(object):
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
-        # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
+        rospy.Subscriber('/current_velocity', TwistStamped, self.current_velocity_cb)
 
+        # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
         # TODO: Add other member variables you need below
+        self.waypoints = None
+        self.pose = None
+        self.current_linear_velocity = 0.0
+        self.speed_limit = rospy.get_param('/waypoint_loader/velocity') / 2.2369
 
-        rospy.spin()
+        #rospy.spin()
+        self.loop()
+
+    def loop(self):
+        rate = rospy.Rate(10)
+
+        while not rospy.is_shutdown():
+            if (self.waypoints is None) or (self.pose is None):
+                continue
+
+            near_dist  = 99999
+            near_index = None
+            dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
+            for i in range(len(self.waypoints.waypoints)):
+                dist = dl(self.pose.pose.position, self.waypoints.waypoints[i].pose.pose.position)
+                if dist < near_dist:
+                    near_dist  = dist
+                    near_index = i
+            near_index = (near_index + 1) % len(self.waypoints.waypoints)
+
+            lane = Lane()
+            lane.waypoints = []
+
+            v = self.current_linear_velocity
+            v = max(1.1 * v, v + ONE_MPH)
+            v = min(v, self.speed_limit - ONE_MPH)
+
+            for i in range(LOOKAHEAD_WPS):
+                index  = (i + near_index    ) % len(self.waypoints.waypoints)
+                lane.waypoints.append(self.waypoints.waypoints[index])
+                #lane.waypoints[i].pose.header.seq = index
+
+            for i in range(LOOKAHEAD_WPS):
+                index  = (i + near_index    ) % len(self.waypoints.waypoints)
+                index2 = (i + near_index + 1) % len(self.waypoints.waypoints)
+                self.set_waypoint_velocity(lane.waypoints, i, v)
+
+                dist = 0.0
+                if i < LOOKAHEAD_WPS-1:
+                    dist = self.distance(self.waypoints.waypoints, index, index2)
+
+                v_sq = v * v + 2. * dist
+                v = math.sqrt(max(0., v_sq))
+                v = min(v, self.speed_limit - ONE_MPH)
+
+            self.final_waypoints_pub.publish(lane)
+            rate.sleep()
 
     def pose_cb(self, msg):
-        # TODO: Implement
-        pass
+        self.pose = msg
 
     def waypoints_cb(self, waypoints):
-        # TODO: Implement
-        pass
+        self.waypoints = waypoints
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
@@ -55,6 +107,9 @@ class WaypointUpdater(object):
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
         pass
+
+    def current_velocity_cb(self, msg):
+        self.current_linear_velocity = msg.twist.linear.x
 
     def get_waypoint_velocity(self, waypoint):
         return waypoint.twist.twist.linear.x
