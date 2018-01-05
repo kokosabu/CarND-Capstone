@@ -100,8 +100,16 @@ class TLDetector(object):
             int: index of the closest waypoint in self.waypoints
 
         """
-        #TODO implement
-        return 0
+        near_dist  = 99999
+        near_index = None
+        dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
+        for i in range(len(self.waypoints.waypoints)):
+            dist = dl(pose.position, self.waypoints.waypoints[i].pose.pose.position)
+            if dist < near_dist:
+                near_dist  = dist
+                near_index = i
+        near_index = (near_index + 1) % len(self.waypoints.waypoints)
+        return near_index
 
     def get_light_state(self, light):
         """Determines the current color of the traffic light
@@ -139,6 +147,21 @@ class TLDetector(object):
             car_position = self.get_closest_waypoint(self.pose.pose)
 
         #TODO find the closest visible traffic light (if one exists)
+        near_dist  = 0.2
+        light_wp = None
+        light = None
+        dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
+        for i in range(len(self.waypoints.waypoints)):
+            for j in range(len(stop_line_positions)):
+                dist =
+                dl(self.waypoints.waypoints[(i+car_position)%len(self.waypoints.waypoints)].pose.pose.position,
+                        stop_line_positions[j]))
+                if dist < near_dist:
+                    light = (i+car_position)%len(self.waypoints.waypoints)
+                    light_wp = light
+                    break
+            if light:
+                break
 
         if light:
             state = self.get_light_state(light)
