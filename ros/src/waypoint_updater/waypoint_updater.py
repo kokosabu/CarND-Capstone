@@ -25,7 +25,7 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 80 # Number of waypoints we will publish. You can change this number
 ONE_MPH = 0.44704
 
 
@@ -77,22 +77,23 @@ class WaypointUpdater(object):
             v = max(1.1 * v, v + ONE_MPH)
             v = min(v, self.speed_limit - ONE_MPH)
 
-            for i in range(LOOKAHEAD_WPS):
-                index  = (i + near_index    ) % len(self.waypoints.waypoints)
-                lane.waypoints.append(self.waypoints.waypoints[index])
+            #for i in range(LOOKAHEAD_WPS):
+                #index  = (i + near_index    ) % len(self.waypoints.waypoints)
+                #lane.waypoints.append(self.waypoints.waypoints[index])
                 #lane.waypoints[i].pose.header.seq = index
 
             for i in range(LOOKAHEAD_WPS):
                 index  = (i + near_index     ) % len(self.waypoints.waypoints)
-                index2 = (i + near_index +  1) % len(self.waypoints.waypoints)
-                index3 = (i + near_index + 20) % len(self.waypoints.waypoints)
+                index2 = (i + near_index +  5) % len(self.waypoints.waypoints)
+                index3 = (i + near_index + 15) % len(self.waypoints.waypoints)
+                lane.waypoints.append(self.waypoints.waypoints[index])
                 self.set_waypoint_velocity(lane.waypoints, i, v)
 
                 dist = 0.0
                 if i < LOOKAHEAD_WPS-1:
                     dist = self.distance(self.waypoints.waypoints, index, index2)
 
-                if self.traffic_waypoint == None:
+                if self.traffic_waypoint == None or self.traffic_waypoint == -1:
                     v_sq = v * v + 2. * dist
                     v = math.sqrt(max(0., v_sq))
                     v = min(v, self.speed_limit - ONE_MPH)
@@ -104,7 +105,8 @@ class WaypointUpdater(object):
                         v = math.sqrt(max(0., v_sq))
                         v = min(v, self.speed_limit - ONE_MPH)
                     else:
-                        v_sq = v * v - 2. * dist
+                        #v_sq = 0.6 * v * v - 2. * dist
+                        v = 0
                         v = math.sqrt(max(0., v_sq))
                         v = min(0, v)
 
@@ -118,7 +120,8 @@ class WaypointUpdater(object):
         self.waypoints = waypoints
 
     def traffic_cb(self, msg):
-        self.traffic_waypoint = msg
+        self.traffic_waypoint = msg.data
+        rospy.logwarn("way : %d", self.traffic_waypoint)
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later

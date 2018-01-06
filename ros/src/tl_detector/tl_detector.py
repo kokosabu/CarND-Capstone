@@ -151,7 +151,7 @@ class TLDetector(object):
             car_position = self.get_closest_waypoint(self.pose.pose)
 
             #TODO find the closest visible traffic light (if one exists)
-            near_dist  = 0.2
+            near_dist  = 2.0
             light_wp = None
             light = None
             dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
@@ -164,14 +164,25 @@ class TLDetector(object):
                     p.position.z = 0
                     dist = dl(self.waypoints.waypoints[(i+car_position)%len(self.waypoints.waypoints)].pose.pose.position, p.position)
                     if dist < near_dist:
-                        light = (i+car_position)%len(self.waypoints.waypoints)
-                        light_wp = light
+                        light = True
+                        light_wp = (i+car_position)%len(self.waypoints.waypoints)
+                        rospy.logwarn("car:%d, wayp:%d", car_position, light_wp)
+                        near_dist = dist
                         break
                 if light:
                     break
 
         if light:
             state = self.get_light_state(light)
+            if state == TrafficLight.UNKNOWN:
+                light_wp = -1
+                rospy.logwarn("[%d] unknown", light_wp)
+            if state == TrafficLight.RED:
+                rospy.logwarn("[%d] red", light_wp)
+            if state == TrafficLight.YELLOW:
+                rospy.logwarn("[%d] yellow", light_wp)
+            if state == TrafficLight.GREEN:
+                rospy.logwarn("[%d] green", light_wp)
             return light_wp, state
         self.waypoints = None
         return -1, TrafficLight.UNKNOWN

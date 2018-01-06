@@ -55,8 +55,8 @@ class DBWNode(object):
 
         # TODO: Create `TwistController` object
         # self.controller = TwistController(<Arguments you wish to provide>)
-        self.controller = Controller(wheel_base, steer_ratio, 0.0,
-                max_lat_accel, max_steer_angle)
+        self.controller = Controller(wheel_base, steer_ratio, 0.4,
+                max_lat_accel, max_steer_angle, decel_limit, accel_limit)
 
         # TODO: Subscribe to all the topics you need to
         self.current = None
@@ -96,11 +96,11 @@ class DBWNode(object):
                                                                  self.dbw_enabled,
                                                                  rate)
                                                                  #<any other argument you need>)
-                rospy.logwarn("linear %f, angular %f, current %f, steer %f",
-                        self.proposed.twist.linear.x,
-                        self.proposed.twist.angular.z,
-                        self.current.twist.linear.x,
-                        steer)
+                #rospy.logwarn("linear %f, angular %f, current %f, steer %f",
+                #        self.proposed.twist.linear.x,
+                #        self.proposed.twist.angular.z,
+                #        self.current.twist.linear.x,
+                #        steer)
             if self.dbw_enabled:
                 self.publish(throttle, brake, steer)
             rate.sleep()
