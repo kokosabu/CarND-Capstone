@@ -12,9 +12,9 @@ class Controller(object):
         self.yaw_controller = YawController(wheel_base, steer_ratio,
                 min_speed, max_lat_accel, max_steer_angle)
         self.steer_filter = LowPassFilter(0.0, 1.0)
-        self.steer_pid = PID(0.75, 0.005, 1.0, -max_steer_angle, max_steer_angle)
-        self.velocity_pid = PID(1.4, 0, 0, decel_limit, accel_limit)
-        self.velocity_filter = LowPassFilter(1.0, 3.0)
+        self.steer_pid = PID(0.8, 0.005, 1.3, -max_steer_angle, max_steer_angle)
+        self.velocity_pid = PID(0.6, 0.1, 0.1, decel_limit, accel_limit)
+        self.velocity_filter = LowPassFilter(5.0, 1.0)
         self.last_time = rospy.get_time()
 
     def control(self, proposed_linear, proposed_angular, current_linear,
@@ -35,10 +35,13 @@ class Controller(object):
 
         #throttle = 0.2 * (proposed_linear.x - current_linear.x)
         throttle_raw = self.velocity_pid.step(proposed_linear.x - current_linear.x, delta)
-        throttle = self.velocity_filter.filt(throttle_raw)
+        throttle = self.velocity_filter.filt(throttle_raw) * 0.8
+        rospy.logwarn("linear %f, current %f, throttle %f( -> %f )",
+                proposed_linear.x, current_linear.x, throttle_raw, throttle)
+
         if throttle <= 0:
             throttle = 0
-            brake = 0.2
+            brake = 1
         else:
             brake = 0.0
 
