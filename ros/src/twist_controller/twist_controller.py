@@ -8,14 +8,18 @@ ONE_MPH = 0.44704
 
 class Controller(object):
     def __init__(self, wheel_base, steer_ratio, min_speed, max_lat_accel,
-            max_steer_angle, decel_limit, accel_limit):
+            max_steer_angle, decel_limit, accel_limit, vehicle_mass,
+            fuel_capacity, wheel_radius):
         self.yaw_controller = YawController(wheel_base, steer_ratio,
                 min_speed, max_lat_accel, max_steer_angle)
         self.steer_filter = LowPassFilter(0.0, 1.0)
-        self.steer_pid = PID(0.8, 0.005, 1.3, -max_steer_angle, max_steer_angle)
-        self.velocity_pid = PID(0.6, 0.1, 0.1, decel_limit, accel_limit)
-        self.velocity_filter = LowPassFilter(5.0, 1.0)
+        #self.steer_pid = PID(0.8, 0.005, 1.3, -max_steer_angle, max_steer_angle)
+        self.steer_pid = PID(1.3, 0.01, 1.9, -max_steer_angle, max_steer_angle)
+        self.velocity_pid = PID(0.4, 0.1, 0.0, decel_limit, accel_limit)
+        self.velocity_filter = LowPassFilter(0.5, 0.02)
         self.last_time = rospy.get_time()
+        self.vehicle_mass = vehicle_mass + fuel_capacity * GAS_DENSITY
+        self.wheel_radius = wheel_radius
 
     def control(self, proposed_linear, proposed_angular, current_linear,
             dbw_status, rate):
@@ -26,12 +30,14 @@ class Controller(object):
         now = rospy.get_time()
         delta = now - self.last_time
         self.last_time = now
+        rospy.logwarn("now %f, delta %f, last_time %f", 
+                now, delta, self.last_time)
+
 
         steer_raw = self.yaw_controller.get_steering(proposed_linear.x,
                 proposed_angular.z, current_linear.x)
         steer = self.steer_pid.step(steer_raw, delta)
-        #steer = self.steer_pid.step(steer_raw, 0.02)
-        #steer = self.steer_filter.filt(steer_raw)
+        #steer = self.steer_filter.filt(steer)
 
         #throttle = 0.2 * (proposed_linear.x - current_linear.x)
         throttle_raw = self.velocity_pid.step(proposed_linear.x - current_linear.x, delta)
@@ -41,7 +47,7 @@ class Controller(object):
 
         if throttle <= 0:
             throttle = 0
-            brake = 1
+            brake = -throttle * self.vehicle_mass * self.wheel_radius
         else:
             brake = 0.0
 
