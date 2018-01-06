@@ -17,7 +17,7 @@ class TLClassifier(object):
 
         """
 
-        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HCV)
+        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
         RED_MIN1 = np.array([  0.0/360*255, 120, 120], np.uint8)
         RED_MAX1 = np.array([ 35.0/360*255, 255, 255], np.uint8)

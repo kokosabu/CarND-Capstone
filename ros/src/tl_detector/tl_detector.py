@@ -10,6 +10,7 @@ from light_classification.tl_classifier import TLClassifier
 import tf
 import cv2
 import yaml
+import math
 
 STATE_COUNT_THRESHOLD = 3
 
@@ -104,11 +105,14 @@ class TLDetector(object):
         near_index = None
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
         for i in range(len(self.waypoints.waypoints)):
+        #for i in range(len(self.waypoints)):
             dist = dl(pose.position, self.waypoints.waypoints[i].pose.pose.position)
+            #dist = dl(pose.position, self.waypoints[i].pose.pose.position)
             if dist < near_dist:
                 near_dist  = dist
                 near_index = i
         near_index = (near_index + 1) % len(self.waypoints.waypoints)
+        #near_index = (near_index + 1) % len(self.waypoints)
         return near_index
 
     def get_light_state(self, light):
@@ -143,25 +147,28 @@ class TLDetector(object):
 
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
-        if(self.pose):
+        if(self.pose and self.waypoints):
             car_position = self.get_closest_waypoint(self.pose.pose)
 
-        #TODO find the closest visible traffic light (if one exists)
-        near_dist  = 0.2
-        light_wp = None
-        light = None
-        dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
-        for i in range(len(self.waypoints.waypoints)):
-            for j in range(len(stop_line_positions)):
-                dist =
-                dl(self.waypoints.waypoints[(i+car_position)%len(self.waypoints.waypoints)].pose.pose.position,
-                        stop_line_positions[j]))
-                if dist < near_dist:
-                    light = (i+car_position)%len(self.waypoints.waypoints)
-                    light_wp = light
+            #TODO find the closest visible traffic light (if one exists)
+            near_dist  = 0.2
+            light_wp = None
+            light = None
+            dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
+            for i in range(len(self.waypoints.waypoints)):
+                for j in range(len(stop_line_positions)):
+                    #a
+                    p = Pose()
+                    p.position.x = stop_line_positions[j][0]
+                    p.position.y = stop_line_positions[j][1]
+                    p.position.z = 0
+                    dist = dl(self.waypoints.waypoints[(i+car_position)%len(self.waypoints.waypoints)].pose.pose.position, p.position)
+                    if dist < near_dist:
+                        light = (i+car_position)%len(self.waypoints.waypoints)
+                        light_wp = light
+                        break
+                if light:
                     break
-            if light:
-                break
 
         if light:
             state = self.get_light_state(light)

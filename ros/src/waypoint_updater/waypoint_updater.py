@@ -8,6 +8,8 @@ import math
 
 from geometry_msgs.msg import TwistStamped
 
+from std_msgs.msg import Int32
+
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
 
@@ -37,12 +39,14 @@ class WaypointUpdater(object):
         rospy.Subscriber('/current_velocity', TwistStamped, self.current_velocity_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
+        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
         # TODO: Add other member variables you need below
         self.waypoints = None
         self.pose = None
+        self.traffic_waypoint = None
         self.current_linear_velocity = 0.0
         self.speed_limit = rospy.get_param('/waypoint_loader/velocity') / 2.2369
 
@@ -79,17 +83,30 @@ class WaypointUpdater(object):
                 #lane.waypoints[i].pose.header.seq = index
 
             for i in range(LOOKAHEAD_WPS):
-                index  = (i + near_index    ) % len(self.waypoints.waypoints)
-                index2 = (i + near_index + 1) % len(self.waypoints.waypoints)
+                index  = (i + near_index     ) % len(self.waypoints.waypoints)
+                index2 = (i + near_index +  1) % len(self.waypoints.waypoints)
+                index3 = (i + near_index + 20) % len(self.waypoints.waypoints)
                 self.set_waypoint_velocity(lane.waypoints, i, v)
 
                 dist = 0.0
                 if i < LOOKAHEAD_WPS-1:
                     dist = self.distance(self.waypoints.waypoints, index, index2)
 
-                v_sq = v * v + 2. * dist
-                v = math.sqrt(max(0., v_sq))
-                v = min(v, self.speed_limit - ONE_MPH)
+                if self.traffic_waypoint == None:
+                    v_sq = v * v + 2. * dist
+                    v = math.sqrt(max(0., v_sq))
+                    v = min(v, self.speed_limit - ONE_MPH)
+                else:
+                    if index2 == self.traffic_waypoint:
+                        v = 0
+                    elif index3 < self.traffic_waypoint:
+                        v_sq = v * v + 2. * dist
+                        v = math.sqrt(max(0., v_sq))
+                        v = min(v, self.speed_limit - ONE_MPH)
+                    else:
+                        v_sq = v * v - 2. * dist
+                        v = math.sqrt(max(0., v_sq))
+                        v = min(0, v)
 
             self.final_waypoints_pub.publish(lane)
             rate.sleep()
@@ -101,8 +118,7 @@ class WaypointUpdater(object):
         self.waypoints = waypoints
 
     def traffic_cb(self, msg):
-        # TODO: Callback for /traffic_waypoint message. Implement
-        pass
+        self.traffic_waypoint = msg
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
