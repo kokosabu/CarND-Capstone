@@ -91,6 +91,7 @@ class DBWNode(object):
             # if <dbw is enabled>:
             #   self.publish(throttle, brake, steer)
             if self.proposed is not None and self.current is not None:
+                #rospy.logwarn("propse x : %d", self.proposed.twist.linear.x)
                 throttle, brake, steer = self.controller.control(self.proposed.twist.linear,
                                                                  self.proposed.twist.angular,
                                                                  self.current.twist.linear,

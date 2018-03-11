@@ -166,7 +166,7 @@ class TLDetector(object):
                     if dist < near_dist:
                         light = True
                         light_wp = (i+car_position)%len(self.waypoints.waypoints)
-                        rospy.logwarn("car:%d, wayp:%d", car_position, light_wp)
+                        #rospy.logwarn("car:%d, wayp:%d", car_position, light_wp)
                         near_dist = dist
                         break
                 if light:
@@ -176,13 +176,16 @@ class TLDetector(object):
             state = self.get_light_state(light)
             if state == TrafficLight.UNKNOWN:
                 light_wp = -1
-                rospy.logwarn("[%d] unknown", light_wp)
+                #rospy.logwarn("[%d] unknown", light_wp)
             if state == TrafficLight.RED:
-                rospy.logwarn("[%d] red", light_wp)
+                #rospy.logwarn("[%d] red", light_wp)
+                pass
             if state == TrafficLight.YELLOW:
-                rospy.logwarn("[%d] yellow", light_wp)
+                #rospy.logwarn("[%d] yellow", light_wp)
+                pass
             if state == TrafficLight.GREEN:
-                rospy.logwarn("[%d] green", light_wp)
+                #rospy.logwarn("[%d] green", light_wp)
+                pass
             return light_wp, state
         self.waypoints = None
         return -1, TrafficLight.UNKNOWN

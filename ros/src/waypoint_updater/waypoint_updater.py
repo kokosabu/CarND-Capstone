@@ -49,12 +49,14 @@ class WaypointUpdater(object):
         self.traffic_waypoint = None
         self.current_linear_velocity = 0.0
         self.speed_limit = rospy.get_param('/waypoint_loader/velocity') / 2.2369
+        self.velocity = self.kmph2mps(rospy.get_param('/waypoint_loader/velocity'))
 
         #rospy.spin()
         self.loop()
 
     def loop(self):
-        rate = rospy.Rate(10)
+        #rate = rospy.Rate(10)
+        rate = rospy.Rate(2)
 
         while not rospy.is_shutdown():
             if (self.waypoints is None) or (self.pose is None):
@@ -77,11 +79,66 @@ class WaypointUpdater(object):
             v = max(1.1 * v, v + ONE_MPH)
             v = min(v, self.speed_limit - ONE_MPH)
 
+            #"""
+            last_index = near_index + LOOKAHEAD_WPS
+            l = False
+            if last_index > len(self.waypoints.waypoints):
+                waypoints = self.waypoints.waypoints[near_index:]
+                waypoints += self.waypoints.waypoints[:last_index - len(self.waypoints.waypoints)]
+                l = True
+            else:
+                waypoints = self.waypoints.waypoints[near_index:last_index]
+
+            if self.traffic_waypoint == None or self.traffic_waypoint == -1:
+                brake_wp = -1
+                brake = True
+            elif l and self.traffic_waypoint < near_index:
+                brake_wp = self.traffic_waypoint - near_index + len(self.waypoints.waypoints)
+                brake = brake_wp <= 30
+            elif self.traffic_waypoint < near_index:
+                brake_wp = -1
+                brake = True
+            else:
+                brake_wp = self.traffic_waypoint - near_index
+                brake = brake_wp <= 30
+
+            #rospy.logwarn("wp : %d, brake : %d\n", brake_wp, brake)
+
+            for i in range(len(waypoints)):
+                #v_sq = v * v + 2. * dist
+                #v = math.sqrt(max(0., v_sq))
+                #v = min(v, self.speed_limit - ONE_MPH)
+                #self.set_waypoint_velocity(waypoints, i, v)
+                set_v = min(self.current_linear_velocity + (i+1) * 2, self.velocity)
+                self.set_waypoint_velocity(waypoints, i, set_v)
+
+            if brake:
+                self.set_waypoint_velocity(waypoints, brake_wp, 0.0)
+                #self.set_waypoint_velocity(waypoints, brake_wp, -0.5)
+                for i in range(0, brake_wp+1):
+                    dist = self.distance(waypoints, brake_wp, i)
+                    set_v = math.sqrt(2 * 1 * dist)
+                    if set_v < 1:
+                        set_v = 0.5
+                    self.set_waypoint_velocity(waypoints, i, min(set_v,
+                        waypoints[i].twist.twist.linear.x))
+
+            lane.waypoints = waypoints
+            self.final_waypoints_pub.publish(lane)
+
             #for i in range(LOOKAHEAD_WPS):
                 #index  = (i + near_index    ) % len(self.waypoints.waypoints)
                 #lane.waypoints.append(self.waypoints.waypoints[index])
                 #lane.waypoints[i].pose.header.seq = index
+            
 
+            """
+
+            count1 = 0
+            count2 = 0
+            count3 = 0
+            count4 = 0
+            count5 = 0
             for i in range(LOOKAHEAD_WPS):
                 index  = (i + near_index     ) % len(self.waypoints.waypoints)
                 index2 = (i + near_index +  5) % len(self.waypoints.waypoints)
@@ -92,24 +149,40 @@ class WaypointUpdater(object):
                 dist = 0.0
                 if i < LOOKAHEAD_WPS-1:
                     dist = self.distance(self.waypoints.waypoints, index, index2)
+                    count1 += 1
 
                 if self.traffic_waypoint == None or self.traffic_waypoint == -1:
                     v_sq = v * v + 2. * dist
                     v = math.sqrt(max(0., v_sq))
                     v = min(v, self.speed_limit - ONE_MPH)
+                    v = max(v, v + ONE_MPH)
+                    v = 0
+                    count2 += 1
                 else:
                     if index2 == self.traffic_waypoint:
                         v = 0
+                        count3 += 1
                     elif index3 < self.traffic_waypoint:
-                        v_sq = v * v + 2. * dist
+                        #v_sq = v * v + 2. * dist
+                        v = 0
                         v = math.sqrt(max(0., v_sq))
                         v = min(v, self.speed_limit - ONE_MPH)
+                        v = max(v, v + ONE_MPH)
+                        count4 += 1
                     else:
                         #v_sq = 0.6 * v * v - 2. * dist
                         v = 0
                         v = math.sqrt(max(0., v_sq))
-                        v = min(0, v)
+                        v = min(v, self.speed_limit - ONE_MPH)
+                        v = max(v, v + ONE_MPH)
+                        count5 += 1
 
+                rospy.logwarn("i = %d, v = %f, idx1 = %d, idx2 = %d, idx3 = %d",
+                        i, v, index, index2, index3)
+
+            rospy.logwarn("%d %d %d %d %d",
+                    count1, count2, count3, count4, count5)
+            """
             self.final_waypoints_pub.publish(lane)
             rate.sleep()
 
@@ -121,7 +194,7 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         self.traffic_waypoint = msg.data
-        rospy.logwarn("way : %d", self.traffic_waypoint)
+        #rospy.logwarn("way : %d", self.traffic_waypoint)
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
@@ -143,6 +216,9 @@ class WaypointUpdater(object):
             dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
             wp1 = i
         return dist
+
+    def kmph2mps(self, velocity_kmph):
+        return (velocity_kmph * 1000.0) / (60.0 * 60.0)
 
 
 if __name__ == '__main__':
